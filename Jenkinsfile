@@ -1,38 +1,49 @@
-pipeline{
+pipeline {
     agent any
 
     environment {
-        image_name="devoopsguru/hello"
+        IMAGE_NAME = "harshitadocker01/hello"
     }
-    stages{
-        stage("git-checkout"){
-            steps{
+
+    stages {
+        stage("git-checkout") {
+            steps {
                 checkout scm
             }
         }
-        stage("image-build"){
-            steps{
-                script{
-                    env.image_tag=new Date().format("yyyy-MM-dd-HH-mmss")
-                    env.full_image="${env.image_name}:${env.image_tag}"
+
+        stage("image-build") {
+            steps {
+                script {
+                    env.IMAGE_TAG = new Date().format("yyyy-MM-dd-HH-mmss")
+                    env.FULL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                }
+
+                sh 'docker build -t "$FULL_IMAGE" .'
+            }
+        }
+
+        stage("docker login") {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'docker_cred',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    sh '''
+                        set +x
+                        echo "$DOCKER_PASSWORD" | docker login \
+                            -u "$DOCKER_USERNAME" --password-stdin
+                    '''
                 }
             }
         }
-        stage("docker login"){
-            steps{
-                script{
-                    withCredentials([usernamePassword(credentialsId: 'docker_cred', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        sh "docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}"
-                    }
-                }
-            }
-        }
-        stage("docker push"){
-            steps{
-                script{
-                    sh "docker build -t ${env.full_image} ."
-                    sh "docker push ${env.full_image}"
-                }
+
+        stage("docker push") {
+            steps {
+                sh 'docker push "$FULL_IMAGE"'
             }
         }
     }
